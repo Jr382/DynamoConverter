@@ -22,8 +22,8 @@ namespace DynamoConverter.Serializer
             _customConversionsRules = customConversionsRules;
         }
 
-        public DynamoSerializer()
-            : this(PopulateCustomConversions(), PopulatePrimaryConversions(), PopulateCustomRules())
+        public DynamoSerializer() :
+            this(PopulateCustomConversions(), PopulatePrimaryConversions(), PopulateCustomRules())
         {
         }
 
@@ -36,67 +36,7 @@ namespace DynamoConverter.Serializer
             else if (type.IsClass) casted = SerializeObject(item, prefix);
             return casted;
         }
-
-        private AttributeValue SerializeField(Field field)
-        {
-            AttributeValue serialized;
-            if (field.Type.IsPrimitive || field.Type == typeof(string)) serialized = _primaryConversions[field.Type](field);
-            else if (_customConversions.ContainsKey(field.Type)) serialized = _customConversions[field.Type](field);
-            else serialized = SerializeByCustomRule(field);
-
-            return serialized;
-        }
-
-        private AttributeValue SerializeByCustomRule(Field field)
-        {
-            var serialized = new AttributeValue();
-            var type = field.Type;
-            var serializeRules = _customConversionsRules.Where(rule => rule.Constraint(type)).ToList();
-            Debug.Assert(serializeRules.Count <= 1, "Found multiples serializations for the current object");
-            if (serializeRules.Count > 0) serialized = serializeRules.First().Conversion(field);
-            else if (type.IsNumericEnumerable()) serialized.NS = ToStringList((IEnumerable)field.Value);
-            else if (type.IsStringEnumerable()) serialized.SS = ToStringList((IEnumerable)field.Value);
-            else if (type.IsSequence()) serialized.L = SerializeEnumerable((IEnumerable)field.Value);
-            else if (type.IsDictionary()) serialized.M = SerializeDictionary((IDictionary)field.Value);
-            else if (type.IsClass) serialized.M = SerializeObject(field.Value);
-            else throw new InvalidCastException("Not found valid serialization for the current object");
-
-            return serialized;
-        }
-
-        private Dictionary<string, AttributeValue> SerializeDictionary(IDictionary dictionary, string prefix = "")
-        {
-            var serializeDictionary = new Dictionary<string, AttributeValue>();
-            foreach (DictionaryEntry entry in dictionary)
-            {
-                if (entry.Value == null) continue;
-                var field = new Field
-                {
-                    Type = entry.Value.GetType(),
-                    Value = entry.Value
-                };
-                serializeDictionary.Add(prefix + entry.Key, SerializeField(field));
-            }
-
-            return serializeDictionary;
-        }
-
-        private List<AttributeValue> SerializeEnumerable(IEnumerable enumerable)
-        {
-            var serializeEnumerable = new List<AttributeValue>();
-            foreach (var item in enumerable)
-            {
-                var field = new Field
-                {
-                    Type = item.GetType(),
-                    Value = item
-                };
-                serializeEnumerable.Add(SerializeField(field));
-            }
-
-            return serializeEnumerable;
-        }
-
+        
         private Dictionary<string, AttributeValue> SerializeObject(object item, string prefix = "")
         {
             var serializeObject = new Dictionary<string, AttributeValue>();
@@ -110,12 +50,63 @@ namespace DynamoConverter.Serializer
             return serializeObject;
         }
 
-        private static List<string> ToStringList(IEnumerable list)
+        private AttributeValue SerializeField(Field field)
+        {
+            AttributeValue serialized;
+            if (field.Type.IsPrimitive || field.Type == typeof(string)) serialized = _primaryConversions[field.Type](field);
+            else if (_customConversions.TryGetValue(field.Type, out var conversion)) serialized = conversion(field);
+            else serialized = SerializeByCustomRule(field);
+
+            return serialized;
+        }
+
+        private AttributeValue SerializeByCustomRule(Field field)
+        {
+            var serialized = new AttributeValue();
+            var serializeRules = _customConversionsRules.Where(rule => rule.Constraint(field.Type)).ToList();
+            Debug.Assert(serializeRules.Count <= 1, "Found multiples serializations for the current object");
+            if (serializeRules.Any()) serialized = serializeRules.First().Conversion(field);
+            else if (field.Type.IsNumericEnumerable()) serialized.NS = SerializeStringEnumerable((IEnumerable)field.Value);
+            else if (field.Type.IsStringEnumerable()) serialized.SS = SerializeStringEnumerable((IEnumerable)field.Value);
+            else if (field.Type.IsSequence()) serialized.L = SerializeEnumerable((IEnumerable)field.Value);
+            else if (field.Type.IsDictionary()) serialized.M = SerializeDictionary((IDictionary)field.Value);
+            else if (field.Type.IsClass) serialized.M = SerializeObject(field.Value);
+            else throw new InvalidCastException("Not found valid serialization for the current object");
+
+            return serialized;
+        }
+        
+        private static List<string> SerializeStringEnumerable(IEnumerable list)
         {
             return list.Cast<object>()
                 .Where(item => item != null)
                 .Select(item => item.ToString())
                 .ToList()!;
+        }
+        
+        private List<AttributeValue> SerializeEnumerable(IEnumerable enumerable)
+        {
+            var serializeEnumerable = new List<AttributeValue>();
+            foreach (var item in enumerable)
+            {
+                var field = new Field { Type = item.GetType(), Value = item };
+                serializeEnumerable.Add(SerializeField(field));
+            }
+
+            return serializeEnumerable;
+        }
+
+        private Dictionary<string, AttributeValue> SerializeDictionary(IDictionary dictionary, string prefix = "")
+        {
+            var serializeDictionary = new Dictionary<string, AttributeValue>();
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Value == null) continue;
+                var field = new Field { Type = entry.Value.GetType(), Value = entry.Value };
+                serializeDictionary.Add($"{prefix}{entry.Key}", SerializeField(field));
+            }
+
+            return serializeDictionary;
         }
 
         public static void AddSerialization(Type type, Func<Field, AttributeValue> conversion)
