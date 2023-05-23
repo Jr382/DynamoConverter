@@ -55,13 +55,13 @@ namespace DynamoConverter.Deserializer
                     var fieldInfo = (FieldInfo)attribute;
                     var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ??
                                     fieldInfo.FieldType;
-                    fieldInfo.SetValue(instance, DeserializeAttribute(fieldType, value));
+                    fieldInfo.SetValue(instance, DeserializeAttribute(fieldType, value, attribute.Name));
                     break;
                 case MemberTypes.Property:
                     var propertyInfo = (PropertyInfo)attribute;
                     var propertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ??
                                        propertyInfo.PropertyType;
-                    propertyInfo.SetValue(instance, DeserializeAttribute(propertyType, value));
+                    propertyInfo.SetValue(instance, DeserializeAttribute(propertyType, value, attribute.Name));
                     break;
             }
         }
@@ -79,12 +79,12 @@ namespace DynamoConverter.Deserializer
                 else if (type.IsClass) deserialized = DeserializeObjectAttribute(type, attribute);
                 else
                     throw new InvalidCastException(
-                        $"Not found valid deserialization for the attribute {attributeName}");
+                        $"Not found valid deserialization for the attribute '{attributeName}'");
             }
             catch (Exception e)
             {
                 throw new InvalidCastException(
-                    $"Failed to deserialize the attribute {attributeName}", e);
+                    $"Failed to deserialize the attribute '{attributeName}'", e);
             }
 
             return deserialized;
@@ -113,7 +113,7 @@ namespace DynamoConverter.Deserializer
         {
             var innerType = type.IsArray ? type.GetElementType()! : type.GetGenericArguments()[0];
             var values = CreateArray(innerType, list.Select(item => DeserializeAttribute(innerType, item)));
-            var deserialized = type.IsArray ? values : (IEnumerable)Activator.CreateInstance(type, values)!;
+            var deserialized = type.IsArray ? values : (IEnumerable) Activator.CreateInstance(type, values)!;
 
             return deserialized;
         }
@@ -133,9 +133,19 @@ namespace DynamoConverter.Deserializer
         {
             var innerType = type.IsArray ? type.GetElementType()! : type.GetGenericArguments()[0];
             var values = CreateArray(innerType, enumerable.Select(item => CastString(innerType, item)));
-            var deserialized = type.IsArray ? values : (IEnumerable)Activator.CreateInstance(type, values)!;
+            var deserialized = type.IsArray ? values : (IEnumerable) Activator.CreateInstance(type, values)!;
 
             return deserialized;
+        }
+        
+        private static IEnumerable CreateArray(Type type, IEnumerable<object> items)
+        {
+            var enumerable = items as object[] ?? items.ToArray();
+            var array = Array.CreateInstance(type, enumerable.Length);
+            for (var i = 0; i < enumerable.Length; i++) 
+                array.SetValue(enumerable[i], i);
+            
+            return array;
         }
 
         private static object CastString(Type type, string value)
@@ -146,14 +156,6 @@ namespace DynamoConverter.Deserializer
             else throw new InvalidCastException("Not found valid deserialization for the current attribute");
 
             return deserialized;
-        }
-
-        private static IEnumerable CreateArray(Type type, IEnumerable<object> items)
-        {
-            var enumerable = items as object[] ?? items.ToArray();
-            dynamic array = Array.CreateInstance(type, enumerable.Length);
-            for (var i = 0; i < enumerable.Length; i++) array[i] = i;
-            return array;
         }
 
         public void AddConversion(Type type, Func<AttributeValue, object> conversion)

@@ -6,9 +6,9 @@ namespace DynamoConverter.Models
 {
     public class Field
     {
-        public Type Type;
-        public object Value;
-        public string Name;
+        public Type Type = null!;
+        public object Value = null!;
+        public string Name = null!;
         public ReturnType? ReturnType;
         public bool IgnoreField;
         public string? Alias;

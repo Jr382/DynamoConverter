@@ -4,6 +4,14 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Version>1.0.0.4</Version>
+        <Title>DynamoConverter</Title>
+        <Authors>Jose Perez</Authors>
+        <Description>A nuget to handle AWS DynamoDb entities</Description>
+        <RepositoryUrl>https://github.com/Jr382/DynamoConverter</RepositoryUrl>
+        <PackageTags>DynamoDb, Serializer, Deserializer</PackageTags>
+        <PackageReleaseNotes>Solved Enumerable deserialization :(</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>

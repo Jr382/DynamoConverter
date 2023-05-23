@@ -34,7 +34,7 @@ namespace DynamoConverter
         {
             return values
                 .Where(value => value != null)
-                .Select(value => Deserializer.Deserialize<T>(value));
+                .Select(value => Deserializer.Deserialize<T>(value!));
         }
 
         public static void AddDeserialization(Type type, Func<AttributeValue, object> conversion) =>

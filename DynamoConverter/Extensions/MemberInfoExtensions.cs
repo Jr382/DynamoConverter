@@ -14,13 +14,16 @@ namespace DynamoConverter.Extensions
                 case MemberTypes.Field:
                     var fieldInfo = (FieldInfo) info;
                     var fieldValue = item != null ? fieldInfo.GetValue(item) : null;
-                    castedField = fieldValue != null ? new Field(info, fieldInfo.FieldType, fieldValue) : null!;
+                    var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
+                    castedField = fieldValue != null ? new Field(info, fieldType, fieldValue) : null!;
                     successful = fieldValue != null;
                     break;
                 case MemberTypes.Property:
                     var propertyInfo = (PropertyInfo) info;
+                    var propertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ??
+                                       propertyInfo.PropertyType;
                     var propertyValue = item != null ? propertyInfo.GetValue(item) : null;
-                    castedField = propertyValue != null ? new Field(info, propertyInfo.PropertyType, propertyValue) : null!;
+                    castedField = propertyValue != null ? new Field(info, propertyType, propertyValue) : null!;
                     successful = propertyValue != null;
                     break;
                 default:

@@ -35,8 +35,9 @@ public static class TypeCodeExtensions
     
     public static bool IsStringEnumerable(this Type type)
     {
-        var innerType = type.IsArray ? type.GetElementType() : type.GetGenericArguments()[0];
-        return IsSequence(type) && Type.GetTypeCode(innerType).Equals(TypeCode.String);
+        return IsSequence(type) && Type.GetTypeCode(
+                   type.IsArray ? type.GetElementType() 
+                   : type.GetGenericArguments()[0]).Equals(TypeCode.String);
     }
     
     public static bool IsSequence(this Type type) => typeof(IEnumerable).IsAssignableFrom(type) && !typeof(IDictionary).IsAssignableFrom(type);
